@@ -23,6 +23,8 @@
 * LED current limit resistor values should be computed for 12 volts supplied by 
 * the driver circuit.
 *
+* Line 137 sets to current map: 0 for Riverside RV map, 1 for Test map
+*
 * The code is a subset of the main code used for the staging yards and is
 * used for simplicity of code maintenance. 
 ***********************************************************************/
@@ -66,18 +68,20 @@ struct turnoutMap {
 *    Test Yard IS USED TO TEST SINGLE TORTOISES.  
 *    A SINGLE TORTOISE IS SELECTED FOR EACH ROUTE.                         
 **********************************************************************/
-turnoutMap PattersonCreek = {         // Map #0
+turnoutMap RiversideRV = {     // Map #0
              16,               // numTracks
              0,                // startTrack
              1,                // default track
              false,            // have reverse track?
-             "Patterson Creek",           // map name
+             "Riverside-RV",   // map name
 /* trk W0          */  0, 
-/* ROUTE A         */  THROWN_S6+THROWN_S7+THROWN_S8+THROWN_S9+THROWN_S11+THROWN_S15,
-/* ROUTE B         */  THROWN_S2+THROWN_S6+THROWN_S13+THROWN_S14, 
-/* ROUTE C         */  THROWN_S1+THROWN_S3+THROWN_S8+THROWN_S9+THROWN_S10+THROWN_S15,
-/* ROUTE D         */  THROWN_S6+THROWN_S7+THROWN_S8+THROWN_S9+THROWN_S11+THROWN_S15,
-/* ROUTE E         */  THROWN_S4+THROWN_S5+THROWN_S6+THROWN_S7+THROWN_S8+THROWN_S9+THROWN_S12+THROWN_S14 
+/* ROUTE A         */  THROWN_S7+THROWN_S8,
+/* ROUTE B         */  THROWN_S1+THROWN_S2+THROWN_S7+THROWN_S9, 
+/* ROUTE C         */  THROWN_S1+THROWN_S3+THROWN_S7+THROWN_S10,
+/* ROUTE D         */  THROWN_S1+THROWN_S4+THROWN_S7+THROWN_S11,
+/* ROUTE E         */  THROWN_S1+THROWN_S7+THROWN_S12, 
+/* ROUTE F         */  THROWN_S1+THROWN_S5+THROWN_S6+THROWN_S13, 
+/* ROUTE G         */  THROWN_S1+THROWN_S5+THROWN_S14 
 
 };
 
@@ -109,7 +113,7 @@ turnoutMap test = {         // Map #1
 
 //--------------Map yard memory addresses with pointer for crntMap----
 const turnoutMap *mapData[2] = {
-  &PattersonCreek,   // #0
+  &RiversideRV,      // #0
   &test              // #1
 };
 
@@ -124,12 +128,13 @@ void writeTrackBits( uint16_t track);
 // Instantiate a Bounce object
 Bounce debouncer1 = Bounce(); Bounce debouncer2 = Bounce(); 
 Bounce debouncer3 = Bounce(); Bounce debouncer4 = Bounce();
-Bounce debouncer5 = Bounce();
+Bounce debouncer5 = Bounce(); Bounce debouncer6 = Bounce();
+Bounce debouncer7 = Bounce();
 
 int     routeActive  = 0;
 uint8_t currentRoute = 0;
 int     panelSelect  = 0;
-uint8_t crntMap      = 0;
+uint8_t crntMap      = 0;  // 0 equals Riverside RV map, set to 1 for test map
 uint8_t lastRoute    = 0;
 bool newChoice = false;
 
@@ -146,7 +151,9 @@ const byte routeA_pin {26},
            routeB_pin {27},
            routeC_pin {14},
            routeD_pin {12},
-           routeE_pin {23};
+           routeE_pin {23},
+           routeF_pin {19},
+           routeG_pin {18};
 const uint8_t LED_PIN {2};
 
 
@@ -164,7 +171,8 @@ void setup()
   //---Setup the switch input pins
   pinMode(routeA_pin, INPUT_PULLUP); pinMode(routeB_pin, INPUT_PULLUP);
   pinMode(routeC_pin, INPUT_PULLUP); pinMode(routeD_pin, INPUT_PULLUP);
-  pinMode(routeE_pin, INPUT_PULLUP);
+  pinMode(routeE_pin, INPUT_PULLUP); pinMode(routeF_pin, INPUT_PULLUP);
+  pinMode(routeG_pin, INPUT_PULLUP);
 
   //---Shift register pins
   pinMode(latchPin, OUTPUT);
@@ -174,11 +182,13 @@ void setup()
   //---setup the Bounce pins and intervals :
   debouncer1.attach(routeA_pin);  debouncer2.attach(routeB_pin);
   debouncer3.attach(routeC_pin);  debouncer4.attach(routeD_pin);
-  debouncer5.attach(routeE_pin);
+  debouncer5.attach(routeE_pin);  debouncer6.attach(routeF_pin);
+  debouncer7.attach(routeG_pin);
 
   debouncer1.interval(5);           debouncer2.interval(5); // interval in ms
   debouncer3.interval(5);           debouncer4.interval(5);
-  debouncer5.interval(5);
+  debouncer5.interval(5);           debouncer6.interval(5);
+  debouncer7.interval(5);
 
   writeTrackBits(mapData[crntMap]->routes[mapData[crntMap]->defaultTrack]);
 
@@ -242,6 +252,8 @@ void readPanel() {;
     debouncer3.update();
     debouncer4.update();
     debouncer5.update();
+    debouncer6.update();
+    debouncer7.update();
 
     //---update panelSwitch variable---
     uint8_t panelSwitch  = 0; 
@@ -250,6 +262,8 @@ void readPanel() {;
     if (debouncer3.read() == LOW) bitSet(panelSwitch, 2);
     if (debouncer4.read() == LOW) bitSet(panelSwitch, 3);
     if (debouncer5.read() == LOW) bitSet(panelSwitch, 4);
+    if (debouncer6.read() == LOW) bitSet(panelSwitch, 5);
+    if (debouncer7.read() == LOW) bitSet(panelSwitch, 6);
     
     //---evaluate panelSwitch bits to 1 through 5 to write route info---
     switch (panelSwitch) {
@@ -262,6 +276,10 @@ void readPanel() {;
       case 8:  currentRoute = 4;   //---route D
                break;
       case 16: currentRoute = 5;   //---route E
+               break;
+      case 32: currentRoute = 6;   //---route E
+               break;
+      case 64: currentRoute = 7;   //---route E
                break;
       default:
              break;
