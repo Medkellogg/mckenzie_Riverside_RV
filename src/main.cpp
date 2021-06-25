@@ -11,7 +11,7 @@
 * 
 * The repository has all code etc. along with flow control overview and 
 * module graphics. 
-* Repository:  https://github.com/Medkellogg/mckenzie_staging_ESP32 
+* Repository:  https://github.com/Medkellogg/mckenzie_Riverside_RV.git 
 *
 -----------------------------------------------------------------------
 *
